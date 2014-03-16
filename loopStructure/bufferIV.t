@@ -9,7 +9,7 @@ BufferMT = {__index = BufferFunctions}
 
 pageSize = 4*1024*terralib.sizeof(&uint8)
 
-unrollIVLoops = true
+unrollIVLoops = false
 
 -- a % b
 -- stupid C mod doesn't treat negative numbers as you'd hope

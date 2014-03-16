@@ -19,10 +19,14 @@ stencilDepth = 5
 iter = 3
 codegenAsLoop = false
 codegenAsFunctionCall = false
+-- if we're codegening as a function call, we can codegen this once and call multiple times, to save compile time
+dedupFunctionCalls = false
+if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
 
 --terralib.require("bufferSimple")
-terralib.require("bufferIV")
+--terralib.require("bufferIV")
+terralib.require("fakeIV")
 terralib.require("imageBufferSimple")
 
 local y = symbol(int)
@@ -33,10 +37,12 @@ local buffer = {newImageBuffer("input.bmp")}
 table.insert(allocCode,buffer[1]:alloc())
 --table.insert(initCode, buffer[1]:getptrPos(stencilSize, stencilSize))
 
+local fnc
+
 for i=1,stencilDepth do
 
   local inputBuffer = buffer[i]
-  local outputBuffer = newBuffer(imageSize, stencilSize)
+  local outputBuffer = newBuffer(imageSize, stencilSize,i==stencilDepth)
   table.insert(buffer, outputBuffer)
   table.insert(allocCode, outputBuffer:alloc())
 
@@ -80,8 +86,10 @@ for i=1,stencilDepth do
       end
 
   if codegenAsFunctionCall then
-    local terra fnc([inputBuffer:formalParameters()],[outputBuffer:formalParameters()])
-      loopQuote
+    if dedupFunctionCalls==false or i<=2 then
+      fnc = terra([inputBuffer:formalParameters()],[outputBuffer:formalParameters()])
+        loopQuote
+      end
     end
 --    fnc:printpretty()
 --    fnc:disas()
