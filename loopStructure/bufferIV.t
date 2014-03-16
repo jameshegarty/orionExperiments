@@ -101,8 +101,8 @@ function BufferFunctions:formalParameters()
 end
 
 function BufferFunctions:get(relX, relY)
-  if (type(relX)=="number" or terralib.issymbol(relX)) and 
-      (type(relY)=="number" or terralib.issymbol(relY)) then
+--  if (type(relX)=="number" or terralib.issymbol(relX)) and 
+--      (type(relY)=="number" or terralib.issymbol(relY)) then
 
     if unrollIVLoops then
       return `terralib.attrload([&vector(float,V)]([self.internal.IV[-relY]] + relX),{align=V})
@@ -110,8 +110,8 @@ function BufferFunctions:get(relX, relY)
       return `terralib.attrload([&vector(float,V)]([self.internal.IV][-relY] + relX),{align=V})
     end
 
-  end
-  assert(false)
+--  end
+--  assert(false)
 end
 
 function BufferFunctions:set(value)

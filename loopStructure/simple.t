@@ -15,18 +15,18 @@ local C = terralib.includecstring [[
 
 imageSize = 4096 -- square
 stencilSize = 16 -- square
-stencilDepth = 5
+stencilDepth = 10
 iter = 3
-codegenAsLoop = false
+codegenAsLoop = true
 codegenAsFunctionCall = false
 -- if we're codegening as a function call, we can codegen this once and call multiple times, to save compile time
 dedupFunctionCalls = false
 if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
 
---terralib.require("bufferSimple")
+terralib.require("bufferSimple")
 --terralib.require("bufferIV")
-terralib.require("fakeIV")
+--terralib.require("fakeIV")
 terralib.require("imageBufferSimple")
 
 local y = symbol(int)
@@ -56,18 +56,36 @@ for i=1,stencilDepth do
 
   if codegenAsLoop then
 
+--[=[
     expr = quote
       var reduction : vector(float,V) = 0
-      for x = -stencilSize+1,1 do
-        for y = -stencilSize+1,1 do
+      for y = -stencilSize+1,1 do
+        for x = -stencilSize+1,1 do
           reduction = reduction + [inputBuffer:get(x,y)]
         end
       end
       in reduction / [stencilSize*stencilSize] end
+  ]=]
+    expr = quote
+      var reduction : vector(float,V) = 0
+      var A : float = 0.988
+      for y = -stencilSize+1,1 do
+--        for x = -stencilSize+1,1 do
+--          reduction = reduction + [inputBuffer:get(x,y)]*A
+--        end
+
+        for x = -stencilSize+1,1,8 do
+          reduction = reduction + (([inputBuffer:get(x,y)]*A+[inputBuffer:get(`x+1,y)]*A)+([inputBuffer:get(`x+2,y)]*A+[inputBuffer:get(`x+3,y)]*A))+(([inputBuffer:get(`x+4,y)]*A+[inputBuffer:get(`x+5,y)]*A)+([inputBuffer:get(`x+6,y)]*A+[inputBuffer:get(`x+7,y)]*A))
+        end
+
+--          var x = -stencilSize+1
+--          reduction = reduction + ((([inputBuffer:get(x,y)]+[inputBuffer:get(`x+1,y)])+([inputBuffer:get(`x+2,y)]+[inputBuffer:get(`x+3,y)]))+(([inputBuffer:get(`x+4,y)]+[inputBuffer:get(`x+5,y)])+([inputBuffer:get(`x+6,y)]+[inputBuffer:get(`x+7,y)])))+((([inputBuffer:get(`x+8,y)]+[inputBuffer:get(`x+9,y)])+([inputBuffer:get(`x+10,y)]+[inputBuffer:get(`x+11,y)]))+(([inputBuffer:get(`x+12,y)]+[inputBuffer:get(`x+13,y)])+([inputBuffer:get(`x+14,y)]+[inputBuffer:get(`x+16,y)])))
+      end
+      in reduction / [stencilSize*stencilSize] end
   else
     expr = `[vector(float,V)](0)
-    for x=-stencilSize+1,0 do
-      for y=-stencilSize+1,0 do
+    for y=-stencilSize+1,0 do
+      for x=-stencilSize+1,0 do
         expr = `expr + [inputBuffer:get(x,y)]
       end
     end
@@ -90,6 +108,7 @@ for i=1,stencilDepth do
       fnc = terra([inputBuffer:formalParameters()],[outputBuffer:formalParameters()])
         loopQuote
       end
+      fnc:printpretty()
     end
 --    fnc:printpretty()
 --    fnc:disas()
@@ -135,9 +154,14 @@ terra doit()
   cstdio.printf("alloc\n")
   allocCode
 
+  cstdio.printf("init\n")
+  initCode
+  for [y] = stencilSize, imageSize do
+    loopCode
+  end
+
   var start = C.CurrentTimeInSeconds()
   for i=0,iter do
-    cstdio.printf("init\n")
     initCode
     for [y] = stencilSize, imageSize do
 --      cstdio.printf("Y %d\n",y)
@@ -152,6 +176,10 @@ terra doit()
   [finalOutBuffer:toUint8()]
   [finalOutBuffer:save("output.bmp")]
 end
+
+print("FINAL COMPILE")
+doit:printpretty(false)
+print("PP")
 
 start = C.CurrentTimeInSeconds()
 doit:compile()

@@ -16,26 +16,29 @@ local C = terralib.includecstring [[
 
 
 stencilSize = 16
-stencilDepth = 5
+stencilDepth = 10
 iter = 3
-serialReduce = true
+serialReduce = false
+A = 0.988
 
 for i=1,stencilDepth do
 
   if serialReduce then
     local tmp = im(x,y) : cropNone, float32 0 end
-    for i=-stencilSize+1,0 do
-      for j=-stencilSize+1,0 do
-        tmp = im(x,y) : cropNone, float32 tmp + inp(x+i,y+j) end
+
+    for j=-stencilSize+1,0 do
+      for i=-stencilSize+1,0 do
+        tmp = im(x,y) : cropNone, float32 tmp + inp(x+i,y+j)*A end
       end
     end
 
     inp = im(x,y) tmp / [stencilSize*stencilSize] end
   else
     local tmp = {}
-    for i=-stencilSize+1,0 do
-      for j=-stencilSize+1,0 do
-        table.insert(tmp,im(x,y) : cropNone, float32 inp(x+i,y+j) end)
+
+    for j=-stencilSize+1,0 do
+        for i=-stencilSize+1,0 do
+        table.insert(tmp,im(x,y) : cropNone, float32 inp(x+i,y+j)*A end)
       end
     end
     inp = im(x,y) [orion.sum(tmp[1],unpack(tmp))] / [stencilSize*stencilSize] end

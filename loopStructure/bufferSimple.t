@@ -34,12 +34,9 @@ end
 
 
 function BufferFunctions:get(relX, relY)
-  if (type(relX)=="number" or terralib.issymbol(relX)) and 
-      (type(relY)=="number" or terralib.issymbol(relY)) then
 --    return `[self.data][ (([self.yposGet]+relY)*[self.lineWidth]+[self.xposGet]+relX) % [self.lineWidth*self.stencilHeight]]
     return `terralib.attrload([&vector(float,V)](self.data + (([self.yposGet]+relY)*[self.lineWidth]+[self.xposGet]+relX) % [self.lineWidth*self.stencilHeight]),{align=V})
-  end
-  assert(false)
+
 end
 
 function BufferFunctions:set(value)

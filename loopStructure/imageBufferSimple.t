@@ -104,12 +104,12 @@ end
 
 
 function ImageBufferFunctions:get(relX, relY)
-  if (type(relX)=="number" or terralib.issymbol(relX)) and 
-      (type(relY)=="number" or terralib.issymbol(relY)) then
+--  if (type(relX)=="number" or terralib.issymbol(relX)) and 
+--      (type(relY)=="number" or terralib.issymbol(relY)) then
 --    return `[&float]([self.img].data)[([self.yposGet]+relY)*[self.img].width+[self.xposGet]+relX]
     return `terralib.attrload([&vector(float,V)]([&float]([self.internal.img].data) + ([self.internal.yposGet]+relY)*[self.internal.img].width + [self.internal.xposGet]+relX),{align=V})
-  end
-  assert(false)
+--  end
+--  assert(false)
 end
 
 function ImageBufferFunctions:set(value)
