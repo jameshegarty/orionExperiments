@@ -1,0 +1,13 @@
+local C = terralib.includecstring [[
+#include <sys/time.h>
+#include <stdio.h>
+
+  double CurrentTimeInSeconds() {
+  struct timeval tv;
+  gettimeofday(&tv, 0);
+  return tv.tv_sec + tv.tv_usec / 1000000.0;
+                                       }
+
+                                   ]]
+
+imageSize = 24*1024*1024 -- make sure this thing falls out of cache

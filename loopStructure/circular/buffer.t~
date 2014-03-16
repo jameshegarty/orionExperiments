@@ -1,0 +1,6 @@
+BufferFunctions = {}
+BufferMT = {__index = BufferFunctions}
+
+pageSize = 4*1024*terralib.sizeof(&uint8)
+
+function newBuffer(lineWidth, stencilHeight)
