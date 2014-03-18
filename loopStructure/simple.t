@@ -24,9 +24,10 @@ dedupFunctionCalls = false
 if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
 
-terralib.require("bufferSimple")
---terralib.require("bufferIV")
+--terralib.require("bufferSimple")
+terralib.require("bufferIV")
 --terralib.require("fakeIV")
+--terralib.require("vmIV")
 terralib.require("imageBufferSimple")
 
 local y = symbol(int)
