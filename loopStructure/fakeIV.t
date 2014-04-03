@@ -82,6 +82,9 @@ function BufferFunctions:get(relX, relY)
 --  assert(false)
 end
 
+function BufferFunctions:getSet(relX)
+      return `terralib.attrload([&vector(float,V)]([self.internal.IVset]+relX),{align=V})
+end
 function BufferFunctions:set(value)
   return quote
     @[&vector(float,V)]([self.internal.IVset]) = value 

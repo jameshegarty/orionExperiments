@@ -17,6 +17,7 @@ imageSize = 4096 -- square
 stencilSize = 16 -- square
 stencilDepth = 10
 iter = 3
+codegenAsSerial = false
 codegenAsLoop = true
 codegenAsFunctionCall = false
 -- if we're codegening as a function call, we can codegen this once and call multiple times, to save compile time
@@ -24,9 +25,9 @@ dedupFunctionCalls = false
 if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
 
-terralib.require("bufferSimple")
+--terralib.require("bufferSimple")
 --terralib.require("bufferIV")
---terralib.require("fakeIV")
+terralib.require("fakeIV")
 terralib.require("imageBufferSimple")
 
 local y = symbol(int)
@@ -54,7 +55,18 @@ for i=1,stencilDepth do
 
   local expr
 
-  if codegenAsLoop then
+  if codegenAsSerial then
+    expr = quote
+      var reduction : vector(float,V) = 0
+      var A : float = 0.988
+      for y = -stencilSize+1,1 do
+        reduction = reduction - [inputBuffer:get(-stencilSize,y)]*A
+      end
+      for y = -stencilSize+1,1 do
+        reduction = reduction + [inputBuffer:get(0,y)]*A
+      end
+      in [inputBuffer:getSet(-V)] + (reduction / [stencilSize*stencilSize]) end
+  elseif codegenAsLoop then
 
 --[=[
     expr = quote
