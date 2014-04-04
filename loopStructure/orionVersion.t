@@ -32,7 +32,7 @@ for i=1,stencilDepth do
       end
     end
 
-    inp = im(x,y) tmp / [stencilSize*stencilSize] end
+    inp = im(x,y) : crop(16,16,4080,4080)  tmp / [stencilSize*stencilSize] end
   else
     local tmp = {}
 
@@ -41,11 +41,11 @@ for i=1,stencilDepth do
         table.insert(tmp,im(x,y) : cropNone, float32 inp(x+i,y+j)*A end)
       end
     end
-    inp = im(x,y) [orion.sum(tmp[1],unpack(tmp))] / [stencilSize*stencilSize] end
+    inp = im(x,y) : crop(16,16,4080,4080) [orion.sum(tmp[1],unpack(tmp))] / [stencilSize*stencilSize] end
   end
 end
 
-func = orion.compile({inp},{schedule="linebufferall", debug=false})
+func = orion.compile({inp},{schedule="materialize", debug=false, printstage = true, region="centered"})
 
 terra doit()
   var start = C.CTIS()

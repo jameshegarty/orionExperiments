@@ -12,7 +12,7 @@ local C = terralib.includecstring [[
 #include <assert.h>
 
   void * ring_buffer_create (unsigned long order) {
-  char path[] = "/dev/shm/ring-buffer-XXXXXX";
+  char path[] = "/tmp/ring-buffer-XXXXXX";
   int file_descriptor = mkstemp(path);
   
   assert(file_descriptor > 0);
@@ -22,7 +22,7 @@ local C = terralib.includecstring [[
   assert(!ftruncate(file_descriptor, bytes));
   
   void * address = mmap (NULL, bytes << 1, PROT_NONE,
-                         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+                         MAP_ANON | MAP_PRIVATE, -1, 0);
  
   assert(address != MAP_FAILED);
   void * addressp =

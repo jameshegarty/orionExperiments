@@ -26,8 +26,8 @@ if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
 
 --terralib.require("bufferSimple")
-terralib.require("bufferIV")
---terralib.require("fakeIV")
+--terralib.require("bufferIV")
+terralib.require("fakeIV")
 --terralib.require("vmIV")
 terralib.require("imageBufferSimple")
 
@@ -50,8 +50,8 @@ for i=1,stencilDepth do
 
   table.insert(initCode,
                quote
-                 [inputBuffer:getptrPos(stencilSize,stencilSize)]
-                 [outputBuffer:setptrPos(stencilSize,stencilSize)]
+                 [inputBuffer:getptrPos(0, 0)]
+                 [outputBuffer:setptrPos(0, 0)]
                  end)
 
   local expr
@@ -107,13 +107,29 @@ for i=1,stencilDepth do
   end
 
   local loopQuote =     quote
+  if y<stencilSize then
+                     for x = 0, imageSize, V do
+        [outputBuffer:set(`0)]
+        [inputBuffer:getptrNext(V)]
+        [outputBuffer:setptrNext(V)]
+                     end
+
+else
+
+      for x = 0, stencilSize, V do
+        [outputBuffer:set(`0)]
+        [inputBuffer:getptrNext(V)]
+        [outputBuffer:setptrNext(V)]
+      end
+
       for x = stencilSize, imageSize, V do
         [outputBuffer:set(expr)]
         [inputBuffer:getptrNext(V)]
         [outputBuffer:setptrNext(V)]
       end
-      [inputBuffer:getptrNextLine(imageSize-stencilSize)]
-      [outputBuffer:setptrNextLine(imageSize-stencilSize)]
+end
+      [inputBuffer:getptrNextLine(imageSize)]
+      [outputBuffer:setptrNextLine(imageSize)]
       end
 
   if codegenAsFunctionCall then
@@ -136,19 +152,34 @@ end
 local finalOutBuffer = newImageBuffer("input.bmp")
 table.insert(allocCode, finalOutBuffer:alloc())
 table.insert(initCode, quote
-               [buffer[#buffer]:getptrPos(stencilSize, stencilSize)]
-               [finalOutBuffer:setptrPos(stencilSize,stencilSize)]
+               [buffer[#buffer]:getptrPos(0, 0)]
+               [finalOutBuffer:setptrPos(0,0)]
                end)
 
 local loopQuote = quote
+  if y<stencilSize then
+                     for x = 0, imageSize, V do
+                       [finalOutBuffer:set(`0)]
+                       [buffer[#buffer]:getptrNext(V)]
+                       [finalOutBuffer:setptrNext(V)]
+                     end
+
+else
+                     for x = 0, stencilSize, V do
+                       [finalOutBuffer:set(`0)]
+                       [buffer[#buffer]:getptrNext(V)]
+                       [finalOutBuffer:setptrNext(V)]
+                     end
+
                      for x = stencilSize, imageSize, V do
                        var expr = [buffer[#buffer]:get(0,0)]
                        [finalOutBuffer:set(expr)]
                        [buffer[#buffer]:getptrNext(V)]
                        [finalOutBuffer:setptrNext(V)]
                      end
-                     [buffer[#buffer]:getptrNextLine(imageSize-stencilSize)]
-                     [finalOutBuffer:setptrNextLine(imageSize-stencilSize)]
+end
+                     [buffer[#buffer]:getptrNextLine(imageSize)]
+                     [finalOutBuffer:setptrNextLine(imageSize)]
                      end
 
 if codegenAsFunctionCall then
@@ -167,16 +198,10 @@ terra doit()
   cstdio.printf("alloc\n")
   allocCode
 
-  cstdio.printf("init\n")
-  initCode
-  for [y] = stencilSize, imageSize do
-    loopCode
-  end
-
   var start = C.CurrentTimeInSeconds()
   for i=0,iter do
     initCode
-    for [y] = stencilSize, imageSize do
+    for [y] = 0, imageSize do
 --      cstdio.printf("Y %d\n",y)
       loopCode
 --      cstdio.printf("YD\n")

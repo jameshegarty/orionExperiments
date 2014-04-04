@@ -19,9 +19,6 @@ stencilDepth = 10
 iter = 3
 codegenAsLoop = true
 codegenAsFunctionCall = false
--- if we're codegening as a function call, we can codegen this once and call multiple times, to save compile time
-dedupFunctionCalls = false
-if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 reifyBoundary = true
 V = 4
 
@@ -39,9 +36,9 @@ else
   assert(false)
 end
 
---terralib.require("bufferSimple")
+terralib.require("bufferSimple")
 --terralib.require("bufferIV")
-terralib.require("fakeIV")
+--terralib.require("fakeIV")
 --terralib.require("vmIV")
 terralib.require("imageBufferSimple")
 
@@ -123,8 +120,8 @@ end
 local finalOutBuffer = newImageBuffer("input.bmp")
 table.insert(allocCode, finalOutBuffer:alloc())
 table.insert(initCode, quote
-               [buffer[#buffer]:getptrPos(stencilSize, stencilSize)]
-               [finalOutBuffer:setptrPos(stencilSize,stencilSize)]
+               [buffer[#buffer]:getptrPos(0, 0)]
+               [finalOutBuffer:setptrPos(0, 0)]
                end)
 
 table.insert(loopInteriorCode, quote
