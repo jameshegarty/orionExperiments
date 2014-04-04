@@ -27,8 +27,8 @@ V = 4
 
 --terralib.require("bufferSimple")
 --terralib.require("bufferIV")
-terralib.require("fakeIV")
---terralib.require("vmIV")
+--terralib.require("fakeIV")
+terralib.require("vmIV")
 terralib.require("imageBufferSimple")
 
 local y = symbol(int)
@@ -228,3 +228,5 @@ doit:printpretty()
 print("compile time",(endt-start))
 
 doit()
+
+terralib.saveobj("simpleexec",{main = doit})

@@ -36,10 +36,10 @@ else
   assert(false)
 end
 
-terralib.require("bufferSimple")
+--terralib.require("bufferSimple")
 --terralib.require("bufferIV")
 --terralib.require("fakeIV")
---terralib.require("vmIV")
+terralib.require("vmIV")
 terralib.require("imageBufferSimple")
 
 local y = symbol(int)
@@ -186,3 +186,5 @@ doit:printpretty()
 print("compile time",(endt-start))
 
 doit()
+
+terralib.saveobj("swpipelineexec",{main = doit})
