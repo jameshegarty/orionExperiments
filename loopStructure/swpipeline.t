@@ -14,12 +14,14 @@ local C = terralib.includecstring [[
 
 
 imageSize = 4096 -- square
-stencilSize = 16 -- square
+stencilWidth = 4 -- square
+stencilHeight = 0 -- square
 stencilDepth = 10
-iter = 3
-codegenAsLoop = true
+iter = 1
+codegenAsLoop = false
 codegenAsFunctionCall = false
 reifyBoundary = true
+funroll = 8
 V = 4
 
 if reifyBoundary then
@@ -28,9 +30,9 @@ if reifyBoundary then
   iterationSpaceBottom = 0
   iterationSpaceTop = imageSize
 
-  interiorLeft = stencilSize
+  interiorLeft = stencilWidth
   interiorRight = imageSize
-  interiorBottom = stencilSize
+  interiorBottom = stencilHeight
   interiorTop = imageSize
 else
   assert(false)
@@ -58,7 +60,7 @@ local fnc
 for i=1,stencilDepth do
 
   local inputBuffer = buffer[i]
-  local outputBuffer = newBuffer(imageSize, stencilSize,i==stencilDepth)
+  local outputBuffer = newBuffer(imageSize, stencilHeight+1,i==stencilDepth)
   table.insert(buffer, outputBuffer)
   table.insert(allocCode, outputBuffer:alloc())
 
@@ -75,21 +77,22 @@ for i=1,stencilDepth do
     expr = quote
       var reduction : vector(float,V) = 0
       var A : float = 0.988
-      for y = -stencilSize+1,1 do
-        for x = -stencilSize+1,1,8 do
+      for y = -stencilHeight,1 do
+        for x = -stencilWidth,0,8 do
           reduction = reduction + (([inputBuffer:get(x,y)]*A+[inputBuffer:get(`x+1,y)]*A)+([inputBuffer:get(`x+2,y)]*A+[inputBuffer:get(`x+3,y)]*A))+(([inputBuffer:get(`x+4,y)]*A+[inputBuffer:get(`x+5,y)]*A)+([inputBuffer:get(`x+6,y)]*A+[inputBuffer:get(`x+7,y)]*A))
         end
+        reduction = reduction + [inputBuffer:get(0,y)]*A
       end
-      in reduction / [stencilSize*stencilSize] end
+      in reduction / [(stencilWidth+1)*(stencilHeight+1)] end
   else
     expr = `[vector(float,V)](0)
-    for y=-stencilSize+1,0 do
-      for x=-stencilSize+1,0 do
+    for y=-stencilHeight,0 do
+      for x=-stencilWidth,0 do
         expr = `expr + [inputBuffer:get(x,y)]
       end
     end
     
-    expr = `expr / [stencilSize*stencilSize]
+    expr = `expr / [(stencilWidth+1)*(stencilHeight+1)]
   end
 
   local loopBoundaryQuote =     quote
@@ -142,6 +145,15 @@ table.insert(endlineCode, quote
                      [finalOutBuffer:setptrNextLine(imageSize)]
                      end)
 
+local lc = {}
+
+xi = symbol(int)
+for k,v in pairs(loopInteriorCode) do
+  for i=0,funroll-1 do
+    table.insert(lc, quote [loopInteriorCode[k]] end)
+  end
+end
+
 
 terra doit()
   cstdio.printf("alloc\n")
@@ -152,16 +164,44 @@ terra doit()
   for it=0,iter do
     initCode
     for [y] = iterationSpaceBottom, iterationSpaceTop do
---      cstdio.printf("y %d\n",y)
-      for [x] = iterationSpaceLeft, iterationSpaceRight, V do
---      cstdio.printf("xy %d %d\n",x,y)
-        if x<interiorLeft or x>=interiorRight or y<interiorBottom or y>=interiorTop then
+--      cstdio.printf("Y %d\n",y)
+      if y<interiorBottom or y>=interiorTop then
+        for x = iterationSpaceLeft, iterationSpaceRight, V do
           loopBoundaryCode
-        else
-          loopInteriorCode
         end
---      cstdio.printf("YD\n")
+      else
+        for [xi] = iterationSpaceLeft, iterationSpaceRight, V*funroll do
+          if xi<interiorLeft or xi>=interiorRight then
+            var rbound = interiorLeft
+            if xi+V*funroll < rbound then rbound=xi+V*funroll end
+
+            for x = xi, rbound, V do
+              loopBoundaryCode
+            end
+            
+            for x = interiorLeft, xi+funroll*V, V do
+              loopInteriorCode
+            end
+          else
+            lc
+          end
+        end
       end
+
+--[=[
+      for xi = iterationSpaceLeft, iterationSpaceRight, V*funroll do
+
+        for [x] = xi,xi+funroll*V,V do
+          if x<interiorLeft or x>=interiorRight or y<interiorBottom or y>=interiorTop then
+            loopBoundaryCode
+          else
+            loopInteriorCode
+          end
+        end
+
+      end
+      ]=]
+
       endlineCode
     end
   end
@@ -182,6 +222,7 @@ doit:compile()
 endt = C.CurrentTimeInSeconds()
 
 doit:printpretty()
+doit:disas()
 
 print("compile time",(endt-start))
 

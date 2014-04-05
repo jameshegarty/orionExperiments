@@ -14,11 +14,12 @@ local C = terralib.includecstring [[
 
 
 imageSize = 4096 -- square
-stencilSize = 16 -- square
+-- stencil include (0,0) and (-stencilWidth,-stencilHeight)
+stencilWidth = 4
+stencilHeight = 0
 stencilDepth = 10
-iter = 3
-codegenAsSerial = false
-codegenAsLoop = true
+iter = 1
+codegenAsLoop = false
 codegenAsFunctionCall = false
 -- if we're codegening as a function call, we can codegen this once and call multiple times, to save compile time
 dedupFunctionCalls = false
@@ -26,7 +27,7 @@ if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
 
 --terralib.require("bufferSimple")
---terralib.require("bufferIV")
+terralib.require("bufferIV")
 --terralib.require("fakeIV")
 terralib.require("vmIV")
 terralib.require("imageBufferSimple")
@@ -37,14 +38,13 @@ local initCode = {}
 local loopCode = {}
 local buffer = {newImageBuffer("input.bmp")}
 table.insert(allocCode,buffer[1]:alloc())
---table.insert(initCode, buffer[1]:getptrPos(stencilSize, stencilSize))
 
 local fnc
 
 for i=1,stencilDepth do
 
   local inputBuffer = buffer[i]
-  local outputBuffer = newBuffer(imageSize, stencilSize,i==stencilDepth)
+  local outputBuffer = newBuffer(imageSize, stencilHeight+1,i==stencilDepth)
   table.insert(buffer, outputBuffer)
   table.insert(allocCode, outputBuffer:alloc())
 
@@ -56,58 +56,45 @@ for i=1,stencilDepth do
 
   local expr
 
-  if codegenAsSerial then
-    expr = quote
-      var reduction : vector(float,V) = 0
-      var A : float = 0.988
-      for y = -stencilSize+1,1 do
-        reduction = reduction - [inputBuffer:get(-stencilSize,y)]*A
-      end
-      for y = -stencilSize+1,1 do
-        reduction = reduction + [inputBuffer:get(0,y)]*A
-      end
-      in [inputBuffer:getSet(-V)] + (reduction / [stencilSize*stencilSize]) end
-  elseif codegenAsLoop then
+  if codegenAsLoop then
 
 --[=[
     expr = quote
       var reduction : vector(float,V) = 0
-      for y = -stencilSize+1,1 do
-        for x = -stencilSize+1,1 do
-          reduction = reduction + [inputBuffer:get(x,y)]
+      var A : float = 0.988
+      for y = -stencilHeight,1 do
+        for x = -stencilWidth,1 do
+          reduction = reduction + [inputBuffer:get(x,y)]*A
         end
       end
-      in reduction / [stencilSize*stencilSize] end
+      in reduction / [(stencilWidth+1)*(stencilHeight+1)] end
   ]=]
+
     expr = quote
       var reduction : vector(float,V) = 0
       var A : float = 0.988
-      for y = -stencilSize+1,1 do
---        for x = -stencilSize+1,1 do
---          reduction = reduction + [inputBuffer:get(x,y)]*A
---        end
+      for y = -stencilHeight,1 do
 
-        for x = -stencilSize+1,1,8 do
+        for x = -stencilWidth,0,8 do
           reduction = reduction + (([inputBuffer:get(x,y)]*A+[inputBuffer:get(`x+1,y)]*A)+([inputBuffer:get(`x+2,y)]*A+[inputBuffer:get(`x+3,y)]*A))+(([inputBuffer:get(`x+4,y)]*A+[inputBuffer:get(`x+5,y)]*A)+([inputBuffer:get(`x+6,y)]*A+[inputBuffer:get(`x+7,y)]*A))
         end
-
---          var x = -stencilSize+1
---          reduction = reduction + ((([inputBuffer:get(x,y)]+[inputBuffer:get(`x+1,y)])+([inputBuffer:get(`x+2,y)]+[inputBuffer:get(`x+3,y)]))+(([inputBuffer:get(`x+4,y)]+[inputBuffer:get(`x+5,y)])+([inputBuffer:get(`x+6,y)]+[inputBuffer:get(`x+7,y)])))+((([inputBuffer:get(`x+8,y)]+[inputBuffer:get(`x+9,y)])+([inputBuffer:get(`x+10,y)]+[inputBuffer:get(`x+11,y)]))+(([inputBuffer:get(`x+12,y)]+[inputBuffer:get(`x+13,y)])+([inputBuffer:get(`x+14,y)]+[inputBuffer:get(`x+16,y)])))
+        reduction = reduction + [inputBuffer:get(0,y)]*A
       end
-      in reduction / [stencilSize*stencilSize] end
+      in reduction / [(stencilWidth+1)*(stencilHeight+1)] end
+
   else
     expr = `[vector(float,V)](0)
-    for y=-stencilSize+1,0 do
-      for x=-stencilSize+1,0 do
+    for y=-stencilHeight,0 do
+      for x=-stencilWidth,0 do
         expr = `expr + [inputBuffer:get(x,y)]
       end
     end
     
-    expr = `expr / [stencilSize*stencilSize]
+    expr = `expr / [(stencilWidth+1)*(stencilHeight+1)]
   end
 
   local loopQuote =     quote
-  if y<stencilSize then
+  if y<stencilHeight then
                      for x = 0, imageSize, V do
         [outputBuffer:set(`0)]
         [inputBuffer:getptrNext(V)]
@@ -116,16 +103,19 @@ for i=1,stencilDepth do
 
 else
 
-      for x = 0, stencilSize, V do
+      for x = 0, stencilWidth, V do
+--        cstdio.printf("XIS\n")
         [outputBuffer:set(`0)]
         [inputBuffer:getptrNext(V)]
         [outputBuffer:setptrNext(V)]
       end
 
-      for x = stencilSize, imageSize, V do
+      for x = stencilWidth, imageSize, V do
+--        cstdio.printf("XI\n")
         [outputBuffer:set(expr)]
         [inputBuffer:getptrNext(V)]
         [outputBuffer:setptrNext(V)]
+--        cstdio.printf("XID\n")
       end
 end
       [inputBuffer:getptrNextLine(imageSize)]
@@ -157,7 +147,7 @@ table.insert(initCode, quote
                end)
 
 local loopQuote = quote
-  if y<stencilSize then
+  if y<stencilHeight then
                      for x = 0, imageSize, V do
                        [finalOutBuffer:set(`0)]
                        [buffer[#buffer]:getptrNext(V)]
@@ -165,13 +155,13 @@ local loopQuote = quote
                      end
 
 else
-                     for x = 0, stencilSize, V do
+                     for x = 0, stencilWidth, V do
                        [finalOutBuffer:set(`0)]
                        [buffer[#buffer]:getptrNext(V)]
                        [finalOutBuffer:setptrNext(V)]
                      end
 
-                     for x = stencilSize, imageSize, V do
+                     for x = stencilWidth, imageSize, V do
                        var expr = [buffer[#buffer]:get(0,0)]
                        [finalOutBuffer:set(expr)]
                        [buffer[#buffer]:getptrNext(V)]

@@ -18,7 +18,7 @@ local C = terralib.includecstring [[
   assert(file_descriptor > 0);
   assert(!unlink(path));
  
-  int bytes = 1UL << order;
+  int bytes = order * 4096;
   assert(!ftruncate(file_descriptor, bytes));
   
   void * address = mmap (NULL, bytes << 1, PROT_NONE,
@@ -93,8 +93,12 @@ function BufferFunctions:formalParameters()
 end
 
 function BufferFunctions:alloc()
+  local size = self.lineWidth * self.stencilHeight * terralib.sizeof(float)
+  
+  assert(size % 4096 == 0)
+
   return quote
-    var [self.data] = [&float](C.ring_buffer_create(18)) -- 4096*16*4
+    var [self.data] = [&float](C.ring_buffer_create([size/4096])) -- 4096*16*4
     var [self.IVset]
     var [self.IVget]
     var [self.yInLineZero] = -1
