@@ -15,19 +15,20 @@ local C = terralib.includecstring [[
 
 imageSize = 4096 -- square
 -- stencil include (0,0) and (-stencilWidth,-stencilHeight)
-stencilWidth = 4
-stencilHeight = 0
+stencilWidth = 16
+stencilHeight = 16
 stencilDepth = 10
 iter = 1
-codegenAsLoop = false
+codegenAsLoop = true
 codegenAsFunctionCall = false
 -- if we're codegening as a function call, we can codegen this once and call multiple times, to save compile time
 dedupFunctionCalls = false
 if dedupFunctionCalls then assert(codegenAsFunctionCall) end
 V = 4
+extraLines = 15
 
 --terralib.require("bufferSimple")
-terralib.require("bufferIV")
+--terralib.require("bufferIV")
 --terralib.require("fakeIV")
 terralib.require("vmIV")
 terralib.require("imageBufferSimple")
@@ -44,7 +45,7 @@ local fnc
 for i=1,stencilDepth do
 
   local inputBuffer = buffer[i]
-  local outputBuffer = newBuffer(imageSize, stencilHeight+1,i==stencilDepth)
+  local outputBuffer = newBuffer(imageSize, stencilHeight+1+extraLines,i==stencilDepth)
   table.insert(buffer, outputBuffer)
   table.insert(allocCode, outputBuffer:alloc())
 
@@ -94,7 +95,8 @@ for i=1,stencilDepth do
   end
 
   local loopQuote =     quote
-  if y<stencilHeight then
+  for yy = y,y+extraLines+1 do
+  if yy<stencilHeight then
                      for x = 0, imageSize, V do
         [outputBuffer:set(`0)]
         [inputBuffer:getptrNext(V)]
@@ -120,6 +122,7 @@ else
 end
       [inputBuffer:getptrNextLine(imageSize)]
       [outputBuffer:setptrNextLine(imageSize)]
+end
       end
 
   if codegenAsFunctionCall then
@@ -147,7 +150,8 @@ table.insert(initCode, quote
                end)
 
 local loopQuote = quote
-  if y<stencilHeight then
+  for yy = y,y+extraLines+1 do
+  if yy<stencilHeight then
                      for x = 0, imageSize, V do
                        [finalOutBuffer:set(`0)]
                        [buffer[#buffer]:getptrNext(V)]
@@ -170,6 +174,7 @@ else
 end
                      [buffer[#buffer]:getptrNextLine(imageSize)]
                      [finalOutBuffer:setptrNextLine(imageSize)]
+end
                      end
 
 if codegenAsFunctionCall then
@@ -191,7 +196,7 @@ terra doit()
   var start = C.CurrentTimeInSeconds()
   for i=0,iter do
     initCode
-    for [y] = 0, imageSize do
+    for [y] = 0, imageSize, (1+extraLines) do
 --      cstdio.printf("Y %d\n",y)
       loopCode
 --      cstdio.printf("YD\n")
